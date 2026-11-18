@@ -1,0 +1,31 @@
+
+   БЕЗ ИНДЕКСА
+Seq Scan on transactions  (cost=0.00..1421.50 rows=3426 width=39) (actual time=0.037..13.093 rows=3403 loops=1)
+  Filter: ((transaction_date >= '2025-01-01 00:00:00'::timestamp without time zone) AND
+  (transaction_date <= '2025-12-31 00:00:00'::timestamp without time zone) AND (account_id = 1))
+  Rows Removed by Filter: 51597
+Planning Time: 3.227 ms
+Execution Time: 13.358 ms
+
+- Seq Scan - база прошлась по всей таблице (55 000 строк), проверяя каждую на соответствие условиям.
+- Rows Removed by Filter: 51597 - из 55 000 строк база отбросила 51 597, потому что они не подошли под условия. То есть
+она прочитала в 15 раз больше данных, чем нужно.
+- Execution Time: 13.358 ms - время выполнения.
+
+
+    С ИНДЕКСОМ
+Bitmap Heap Scan on transactions  (cost=98.82..616.03 rows=3326 width=39) (actual time=1.083..2.613 rows=3403 loops=1)
+  Recheck Cond: ((account_id = 1) AND (transaction_date >= '2025-01-01 00:00:00'::timestamp without time zone) AND
+  (transaction_date <= '2025-12-31 00:00:00'::timestamp without time zone))
+  Heap Blocks: exact=459
+  ->  Bitmap Index Scan on idx_transactions_account_date  (cost=0.00..97.99 rows=3326 width=0) (actual time=0.995..0.996
+   rows=3403 loops=1)
+        Index Cond: ((account_id = 1) AND (transaction_date >= '2025-01-01 00:00:00'::timestamp without time zone) AND
+         (transaction_date <= '2025-12-31 00:00:00'::timestamp without time zone))
+Planning Time: 0.743 ms
+Execution Time: 2.876 ms
+
+- Bitmap Index Scan (внутри Bitmap Heap Scan) - база сначала быстро нашла в индексе нужные строки (по account_id и
+дате), а потом обратилась к таблице только за ними.
+- Rows Removed by Filter отсутствует (или почти нет) - потому что индекс уже отсеял лишнее.
+- Execution Time: 2.876 ms - время выполнения уменьшилось более чем в 4.5 раза
