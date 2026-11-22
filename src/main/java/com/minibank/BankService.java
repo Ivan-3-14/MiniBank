@@ -8,6 +8,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BankService {
 
@@ -141,6 +143,33 @@ public class BankService {
         } catch (SQLException e) {
             throw new RuntimeException("Error depositing money", e);
         }
+    }
+
+    public List<Transaction> getTransactionsByAccountId(Long accountId) {
+        getAccount(accountId);
+        List<Transaction> result = new ArrayList<>();
+        String sql =
+                "SELECT id, account_id, amount, type, transaction_date FROM transactions WHERE account_id = ? " +
+                        "ORDER BY transaction_date DESC";
+
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, accountId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new Transaction(
+                            rs.getLong("id"),
+                            rs.getLong("account_id"),
+                            rs.getBigDecimal("amount"),
+                            rs.getString("type"),
+                            rs.getTimestamp("transaction_date").toLocalDateTime()
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error getting transactions", e);
+        }
+        return result;
     }
 
     private Connection getConnection() throws SQLException {
